@@ -105,4 +105,3 @@ class Settings:
 
 # Instancia global de configuración
 settings = Settings()
-
