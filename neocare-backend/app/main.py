@@ -3,9 +3,13 @@ Módulo principal de la API de NeoCare Health.
 Configura la aplicación FastAPI, CORS y las rutas de los controladores.
 """
 from fastapi import FastAPI, Depends
+from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
 
+from sqlalchemy.orm import Session
+
+from app.database import engine, SessionLocal, get_db
 from sqlalchemy.orm import Session
 
 from app.database import engine, SessionLocal, get_db
@@ -25,6 +29,7 @@ from app.routers import (
 )
 from app.routers import report
 from app.services.label_template_seed import seed_label_templates
+from app.models import Card
 from app.models import Card
 
 # Obtener logger centralizado
@@ -82,11 +87,19 @@ logger.info("✅ Security headers configurados")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
+        # TODOS tus puertos locales
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
         "http://localhost:5174",
         "http://127.0.0.1:5174",
-        "http://localhost:5182",
-        "http://127.0.0.1:5182",
+        "http://localhost:5175",
+        "http://127.0.0.1:5175",
+        "http://localhost:5176",
+        "http://127.0.0.1:5176",
+
+        # Frontend en Railway
         "https://web-production-61c2c.up.railway.app",
+        "https://neocare-production.up.railway.app",
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -128,12 +141,27 @@ def fix_cards(db: Session = Depends(get_db)):
 
 
 # ============================================================
+# 🛠️ Endpoint temporal para arreglar tarjetas antiguas
+# ============================================================
+@app.post("/fix-cards")
+def fix_cards(db: Session = Depends(get_db)):
+    cards = db.query(Card).all()
+
+    for c in cards:
+        c.board_id = 1   # Tablero César
+        c.list_id = 1    # Lista "Por Hacer"
+        c.user_id = 1    # Tu usuario
+
+    db.commit()
+    return {"status": "ok", "updated": len(cards)}
+
+
+# ============================================================
 # 🧩 Handler universal para OPTIONS — soluciona preflight
 # ============================================================
 @app.options("/{rest_of_path:path}")
 async def preflight_handler(rest_of_path: str):
     return {}
-
 
 @app.get("/")
 def read_root():
