@@ -82,11 +82,19 @@ logger.info("✅ Security headers configurados")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
+        # TODOS tus puertos locales
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
         "http://localhost:5174",
         "http://127.0.0.1:5174",
-        "http://localhost:5182",
-        "http://127.0.0.1:5182",
+        "http://localhost:5175",
+        "http://127.0.0.1:5175",
+        "http://localhost:5176",
+        "http://127.0.0.1:5176",
+
+        # Frontend en Railway
         "https://web-production-61c2c.up.railway.app",
+        "https://neocare-production.up.railway.app",
     ],
     allow_credentials=True,
     allow_methods=["*"],
