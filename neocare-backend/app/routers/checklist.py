@@ -10,12 +10,12 @@ from sqlalchemy.exc import SQLAlchemyError
 from app import database, models, schemas, security
 
 router = APIRouter(
-    prefix="",
+    prefix="/subtasks",
     tags=["Subtasks"],
 )
 
 
-@router.post("/cards/{card_id}/subtasks", response_model=schemas.Subtask)
+@router.post("/cards/{card_id}", response_model=schemas.Subtask)
 def create_subtask(
     card_id: int,
     item: schemas.SubtaskCreate,
@@ -27,7 +27,6 @@ def create_subtask(
     if not card:
         raise HTTPException(status_code=404, detail="Tarjeta no encontrada")
 
-    # Validar permisos
     board = db.query(models.Board).filter(models.Board.id == card.board_id).first()
     if not board or board.owner_id != current_user.id:
         raise HTTPException(status_code=403, detail="No autorizado para esta tarjeta")
@@ -44,13 +43,10 @@ def create_subtask(
         return db_item
     except SQLAlchemyError as exc:
         db.rollback()
-        raise HTTPException(
-            status_code=500,
-            detail="Error al crear subtask"
-        ) from exc
+        raise HTTPException(status_code=500, detail="Error al crear subtask") from exc
 
 
-@router.get("/cards/{card_id}/subtasks", response_model=List[schemas.Subtask])
+@router.get("/cards/{card_id}", response_model=List[schemas.Subtask])
 def get_subtasks(
     card_id: int,
     db: Session = Depends(database.get_db),
@@ -61,31 +57,25 @@ def get_subtasks(
     if not card:
         raise HTTPException(status_code=404, detail="Tarjeta no encontrada")
 
-    # Validar permisos
     board = db.query(models.Board).filter(models.Board.id == card.board_id).first()
     if not board or board.owner_id != current_user.id:
         raise HTTPException(status_code=403, detail="No autorizado")
 
-    return (
-        db.query(models.Subtask)
-        .filter(models.Subtask.card_id == card_id)
-        .all()
-    )
+    return db.query(models.Subtask).filter(models.Subtask.card_id == card_id).all()
 
 
-@router.patch("/subtasks/{item_id}", response_model=schemas.Subtask)
+@router.patch("/{item_id}", response_model=schemas.Subtask)
 def update_subtask(
     item_id: int,
     update_data: schemas.SubtaskUpdate,
     db: Session = Depends(database.get_db),
     current_user: models.User = Depends(security.get_current_user),
 ):
-    """Actualizar una subtask (marcar completado, cambiar título)."""
+    """Actualizar una subtask."""
     item = db.query(models.Subtask).filter(models.Subtask.id == item_id).first()
     if not item:
         raise HTTPException(status_code=404, detail="Item no encontrado")
 
-    # Validar permisos
     card = db.query(models.Card).filter(models.Card.id == item.card_id).first()
     board = db.query(models.Board).filter(models.Board.id == card.board_id).first()
     if not board or board.owner_id != current_user.id:
@@ -101,13 +91,10 @@ def update_subtask(
         return item
     except SQLAlchemyError as exc:
         db.rollback()
-        raise HTTPException(
-            status_code=500,
-            detail="Error al actualizar subtask"
-        ) from exc
+        raise HTTPException(status_code=500, detail="Error al actualizar subtask") from exc
 
 
-@router.delete("/subtasks/{item_id}")
+@router.delete("/{item_id}")
 def delete_subtask(
     item_id: int,
     db: Session = Depends(database.get_db),
@@ -118,7 +105,6 @@ def delete_subtask(
     if not item:
         raise HTTPException(status_code=404, detail="Item no encontrado")
 
-    # Validar permisos
     card = db.query(models.Card).filter(models.Card.id == item.card_id).first()
     board = db.query(models.Board).filter(models.Board.id == card.board_id).first()
     if not board or board.owner_id != current_user.id:
@@ -130,7 +116,6 @@ def delete_subtask(
         return {"message": "Subtask eliminada"}
     except SQLAlchemyError as exc:
         db.rollback()
-        raise HTTPException(
-            status_code=500,
-            detail="Error al eliminar subtask"
-        ) from exc
+        raise HTTPException(status_code=500, detail="Error al eliminar subtask") from exc
+
+

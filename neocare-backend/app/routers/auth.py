@@ -20,6 +20,7 @@ auth_attempts = {}
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
 
+
 def check_rate_limit(email: str) -> bool:
     """Verifica si el email ha excedido el límite de intentos de login."""
     now = datetime.now()
@@ -41,6 +42,9 @@ def check_rate_limit(email: str) -> bool:
     return True
 
 
+# ---------------------------------------------------------
+#  REGISTRO
+# ---------------------------------------------------------
 @router.post("/register", response_model=schemas.User)
 def register(user: schemas.UserCreate, db: Session = Depends(database.get_db)):
     """
@@ -74,11 +78,15 @@ def register(user: schemas.UserCreate, db: Session = Depends(database.get_db)):
     return new_user
 
 
+# ---------------------------------------------------------
+#  LOGIN ORIGINAL (Swagger, OAuth2, form-data)
+# ---------------------------------------------------------
 @router.post("/login", response_model=schemas.Token)
 def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(database.get_db)):
     """
     Verifica las credenciales y devuelve un token de acceso JWT.
-    Incluye rate limiting para prevenir fuerza bruta.
+    Este endpoint usa OAuth2PasswordRequestForm (form-data).
+    Swagger lo usa automáticamente.
     """
     email = form_data.username
     logger.info("🔐 Intento de login para: %s", email)
@@ -99,3 +107,55 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
     access_token = security.create_access_token(data={"sub": user.email})
     logger.info("✅ Login exitoso para: %s", email)
     return {"access_token": access_token, "token_type": "bearer"}
+
+
+# ---------------------------------------------------------
+#  LOGIN JSON (para el frontend)
+# ---------------------------------------------------------
+@router.post("/login-json", response_model=schemas.Token)
+def login_json(credentials: schemas.LoginRequest, db: Session = Depends(database.get_db)):
+    """
+    Login usando JSON (email + password).
+    Este endpoint es para el frontend.
+    """
+    email = credentials.email
+    password = credentials.password
+
+    logger.info("🔐 Login JSON para: %s", email)
+
+    user = db.query(models.User).filter(models.User.email == email).first()
+    if not user or not security.verify_password(password, user.hashed_password):
+        logger.warning("⚠️ Credenciales inválidas para: %s", email)
+        raise HTTPException(status_code=401, detail="Email o contraseña incorrectos")
+
+    access_token = security.create_access_token(data={"sub": user.email})
+    logger.info("✅ Login JSON exitoso para: %s", email)
+
+    return {"access_token": access_token, "token_type": "bearer"}
+
+
+# ---------------------------------------------------------
+#  RESET TEMPORAL DE CONTRASEÑA (solo para uso interno)
+# ---------------------------------------------------------
+@router.post("/force-reset")
+def force_reset(db: Session = Depends(database.get_db)):
+    """
+    Ruta temporal para restablecer la contraseña del usuario con ID = 1.
+    Después de usarla, BORRARLA.
+    """
+    logger.info("🔧 Ejecutando reseteo de contraseña para user_id = 1")
+
+    user = db.query(models.User).filter(models.User.id == 1).first()
+    if not user:
+        logger.error("❌ Usuario con ID 1 no encontrado")
+        raise HTTPException(status_code=404, detail="Usuario no encontrado")
+
+    new_password = "Cesar1234"
+    user.hashed_password = security.get_password_hash(new_password)
+    db.commit()
+
+    logger.info("✅ Contraseña actualizada correctamente para user_id = 1")
+    return {"status": "ok", "message": "Contraseña actualizada a Cesar1234"}
+
+
+
